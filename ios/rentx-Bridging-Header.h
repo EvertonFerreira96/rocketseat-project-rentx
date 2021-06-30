@@ -1,21 +1,4 @@
 //
-//  rentx-Bridging-Header.h
-//  rentx
-//
-//  Created by Everton Ferreira on 28/06/21.
+//  Use this file to import your target's public headers that you would like to expose to Swift.
 //
 
-#ifndef rentx_Bridging_Header_h
-#define rentx_Bridging_Header_h
-
-
-#endif /* rentx_Bridging_Header_h */
-
-
-#import <React/RCTBundleURLProvider.h>
-#import <React/RCTRootView.h>
-#import <React/RCTViewManager.h>
-#import <React/RCTBridgeModule.h>
-
-// Silence warning
-#import "../../node_modules/@nozbe/watermelondb/native/ios/WatermelonDB/SupportingFiles/Bridging.h"
