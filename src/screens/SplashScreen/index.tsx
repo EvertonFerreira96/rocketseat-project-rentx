@@ -26,7 +26,10 @@ export const SplashScreen: React.FC = () => {
   }
 
   useEffect(() => {
+    let isMounted = true; 
+    if(isMounted)
     splashAnimation.value = withTiming( 100, { duration: 1000 }, () => {'worklet'; runOnJS(startApp)() })
+    return () => { isMounted = false }
   },[]);
 
   return (

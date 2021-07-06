@@ -1,4 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Alert, BackHandler, Button, StyleSheet } from 'react-native';
+import { RectButton } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, useAnimatedGestureHandler, withSpring } from 'react-native-reanimated';
+
+import { useNavigation } from '@react-navigation/native';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { synchronize } from '@nozbe/watermelondb/sync';
+
+import { database } from '../../database';
+
+import { RFValue } from 'react-native-responsive-fontsize';
+
+import { api } from '../../services/api';
+
+import { CarDTO } from '../../dto/ICarDTO';
+
+import { useTheme } from 'styled-components';
+
+import { LoadingAnimated } from '../../components/LoadingAnimated';
+import { Car } from '../../components/Car';
+import { Car as ModelCar } from '../../database/models/Car';
+
+import Logo from '../../assets/images/logo.svg';
 
 import {
     Container
@@ -6,36 +29,22 @@ import {
     , TotalCars
     , HeaderContent
     , CarList
-    , MyCarsButton
 } from './styles';
-
-import Logo from '../../assets/images/logo.svg';
-import { RFValue } from 'react-native-responsive-fontsize';
-import { Ionicons } from '@expo/vector-icons'
-import { Car } from '../../components/Car';
-import { LoadingAnimtaed } from '../../components/LoadingAnimtaed';
-
-import Animated, { useSharedValue, useAnimatedStyle, useAnimatedGestureHandler, withSpring } from 'react-native-reanimated';
 
 const AnimatedButton = Animated.createAnimatedComponent(RectButton);
 
-import { useNavigation } from '@react-navigation/native';
-import { useEffect } from 'react';
-import { api } from '../../services/api';
-import { useState } from 'react';
-
-import { CarDTO } from '../../dto/ICarDTO';
-import { useTheme } from 'styled-components';
-import { RectButton, PanGestureHandler } from 'react-native-gesture-handler';
-import { BackHandler, StyleSheet } from 'react-native';
-
 export const Home: React.FC = () => {
+
+    const { isConnected } = useNetInfo();
+
     const theme = useTheme();
-    const [cars, setCars] = useState<CarDTO[]>([]);
+
+    const [cars, setCars] = useState<ModelCar[]>([]);
+
     const [loading, setloading] = useState(true);
 
-    const positionX = useSharedValue(0); 
-    const positionY = useSharedValue(0); 
+    const positionX = useSharedValue(0);
+    const positionY = useSharedValue(0);
 
     const myCarsButtonStyle = useAnimatedStyle(() => {
         return {
@@ -48,47 +57,87 @@ export const Home: React.FC = () => {
 
     const { navigate } = useNavigation();
 
-    function handleCarDetails(car: CarDTO) {
-        navigate('CarDetails', {car});
+    function handleCarDetails(car: ModelCar) {
+        navigate('CarDetails', { car });
     }
 
     const onGestureEvent = useAnimatedGestureHandler({
-        onStart(_, ctx: any){
-            ctx.postiionX = positionX.value; 
-            ctx.postiionY = positionY.value; 
+        onStart(_, ctx: any) {
+            ctx.postiionX = positionX.value;
+            ctx.postiionY = positionY.value;
         },
-        onActive(event, ctx){
-            positionX.value = ctx.postiionX + event.translationX; 
-            positionY.value = ctx.postiionY + event.translationY;  
+        onActive(event, ctx) {
+            positionX.value = ctx.postiionX + event.translationX;
+            positionY.value = ctx.postiionY + event.translationY;
         },
-        onEnd(){
-            positionX.value = withSpring(0, { velocity: 1 }) 
-            positionY.value = withSpring(0, { velocity: 1 })  
+        onEnd() {
+            positionX.value = withSpring(0, { velocity: 1 })
+            positionY.value = withSpring(0, { velocity: 1 })
 
-        } 
+        }
     });
 
     function handleOpenMyCars() {
         navigate('MyCars');
     }
 
+
+    async function offlineSynchronize() {
+        console.log("Begin Synchronize")
+        await synchronize({
+            database,
+            pullChanges: async ({ lastPulledAt }) => {
+
+                const { data } = await api.get(`cars/sync/pull?lastPulledVersion=${lastPulledAt || 0}`);
+
+                const { changes, latestVersion } = data;
+                console.log(lastPulledAt)
+                console.log(changes)
+
+                return {
+                    changes: changes,
+                    timestamp: latestVersion
+                }
+            },
+            pushChanges: async ({ changes }) => {
+                const user = changes.users;
+                await api.post('/users/sync', user).catch(console.log);
+            }
+        });
+    }
+
+
     useEffect(() => {
-        (async () => {
-            try {
-                const { data } = await api.get('cars');
-                setCars(data);
-            } catch (error) {
-                console.log(error);
-            }
-            finally {
-                setloading(false);
-            }
-        })()
-    
-       // BackHandler.addEventListener('hardwareBackPress', () =>  true); 
-    
+
+        let isMounted = true;
+
+        if (isMounted) {
+
+            (async () => {
+
+                try {
+                    const carCollection = database.get<ModelCar>("cars");
+                    const cars = await carCollection.query().fetch();
+                    setCars(cars);
+                } catch (error) {
+                }
+                finally {
+                    setloading(false);
+                }
+            })()
+        }
+        return () => { isMounted = false }
+
     });
 
+
+    useEffect(() => {
+        BackHandler.addEventListener('hardwareBackPress', () =>  true); 
+            if(isConnected === true)
+                offlineSynchronize();
+
+
+    }, [isConnected])
 
     return (
         <Container>
@@ -96,15 +145,15 @@ export const Home: React.FC = () => {
                 <HeaderContent>
                     <Logo width={RFValue(112)} height={RFValue(12)} />
                     {
-                        !loading && 
-                    <TotalCars>
-                        Total de {cars.length} carros
-                    </TotalCars>
+                        !loading &&
+                        <TotalCars>
+                           Total de {cars.length} carros
+                        </TotalCars>
                     }
                 </HeaderContent>
             </Header>
             {
-                loading ? <LoadingAnimtaed />
+                loading ? <LoadingAnimated />
                     : <CarList
                         data={cars}
                         keyExtractor={item => item.id}

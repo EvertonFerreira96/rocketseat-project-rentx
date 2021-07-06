@@ -37,7 +37,7 @@ background-color: ${({theme}) => theme.colors.background_secundary};
 export const InputText = styled(TextInput)<Props>`
 flex: 1; 
 
-font-size: ${RFValue(16)}px;
+font-size: ${RFValue(14)}px;
 font-family: ${({theme}) => theme.fonts.primary_400};
 padding: 0 ${RFValue(23)}px;
 

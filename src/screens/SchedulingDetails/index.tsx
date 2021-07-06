@@ -32,7 +32,8 @@ import {
   RentalPriceLabel,
   RentalPriceQuota,
   RentalPriceTotal,
-  RentalPriceDetails
+  RentalPriceDetails,
+  OfflineInfo
 
  } 
   from './styles';
@@ -44,6 +45,7 @@ import { format } from 'date-fns';
 import { getPlataformDate } from '../../utils/getPlataformDate';
 import { api } from '../../services/api';
 import { Alert } from 'react-native';
+import { useNetInfo } from '@react-native-community/netinfo';
 
 interface RouteParamsProps {
   car: CarDTO
@@ -58,6 +60,10 @@ interface RentalPeriod {
 
 
 export const SchedulingDetails: React.FC = () => {
+  const { isConnected } = useNetInfo(); 
+
+  const [carUpdated, setCarUpdated] = useState<CarDTO>({} as CarDTO ); 
+  
   const [rentalPeriod, setRentalPeriod] = useState<RentalPeriod>({} as RentalPeriod); 
 
   const [loading, setLoading] = useState(false); 
@@ -65,44 +71,37 @@ export const SchedulingDetails: React.FC = () => {
   const { car, dates } = params as RouteParamsProps;
 
   const rentDays =  dates.length; 
-  const rentTotal = Number(rentDays * car.rent.price)
+  const rentTotal = Number(rentDays * car.price)
 
   const { navigate, goBack } = useNavigation();
   const theme = useTheme(); 
 
   async function handleConfirmRental(){
+    setLoading(true);
+
     const title = `Carro alugado!`;
     const subTitle = `
     Agora você só precisa ir {'\n'}
     até a concessionária da RENTX {'\n'}
     pegar seu automóvel`; 
     const nextScreenRoute = `Home`; 
-    setLoading(true);
-    const { data } = await api.get(`/schedules_bycars/${car.id}`); 
+    
 
 
-    await api.post(`/schedules_byuser/`, 
+    await api.post(`rentals`, 
     {
       user_id: 1,
-      car,        
-      startDate: format(getPlataformDate(new Date(dates[0])), 'dd/MM/yyyy'), 
-      endDate: format(getPlataformDate(new Date(dates[dates.length - 1])), 'dd/MM/yyyy'), 
-      
-    },
-    ); 
-
-
-console.log(Object.keys(data.unavailable_dates).map(key => data.unavailable_dates[Number(key)]))
-    api.put(`/schedules_bycars/${car.id}`, {
-      id: car.id, 
-      unavailable_dates: {
-        ...Object.keys(data.unavailable_dates).map(key => data.unavailable_dates[Number(key)]), 
-        ...Object.keys(dates).map(key => dates[Number(key)]),
-      }
-
-    }).then(response => { setLoading(true); navigate('Confirm', { title, subTitle, nextScreenRoute }); })
-      .catch(() => Alert.alert('Não foi possível agendar o automóvel'))
-      .finally(() => setLoading(false)) 
+      car_id: car.id, 
+      start_date:new Date(dates[0]), 
+      end_date:new Date(dates[dates.length - 1]), 
+      total: rentTotal
+    })
+    .then(() => { 
+      setLoading(true); 
+      navigate('Confirm', { title, subTitle, nextScreenRoute }); 
+    })
+    .catch((e) => Alert.alert(e))
+    .finally(() => setLoading(false)) 
 
   }
 
@@ -119,13 +118,34 @@ console.log(Object.keys(data.unavailable_dates).map(key => data.unavailable_date
       }
       )
   },[])
+
+
+
+  useEffect(() => {
+    
+    let isMounted = true; 
+    if(isConnected === true && isMounted)
+    {
+      (async () => {
+        try {
+          const { data } = await api.get(`/cars/${car.id}`); 
+          setCarUpdated(data); 
+        } catch (error) {
+          
+        }
+      })()
+    }
+    return () => { isMounted = false }; 
+    },[isConnected]);
+
   return (
     <Container>
         <Header>
           <BackButton onPress={() => handleBack()} />
         </Header>
         <CarImages>
-         <ImageSlider imagesUrl={car.photos }  /> 
+        <ImageSlider imagesUrl={ !!carUpdated.photos ? carUpdated.photos : [{ id: car.thumbnail, photo: car.thumbnail }] } />
+ 
         </CarImages>
         <Content >
           <Details>
@@ -135,17 +155,16 @@ console.log(Object.keys(data.unavailable_dates).map(key => data.unavailable_date
             </Description>
 
             <Rent>
-              <Period>{car.rent.period}</Period>
-              <Price>{`R$ ${car.rent.price}`}</Price>
+              <Period>{car.period}</Period>
+              <Price>{`R$ ${car.price}`}</Price>
             </Rent>
           </Details>
-          <Accesories>
-            {
-              car.accessories.map(item => {
-                <Accessory key={item.type} name={item.name} icon={getCarAccessoryIcon(item.type)}  />
-              })              
-            }
-          </Accesories>
+              {
+      carUpdated.accessories &&
+      <Accesories>
+        {carUpdated.accessories.map((item) => <Accessory key={item.type} name={item.name} icon={getCarAccessoryIcon(item.type)} />)}
+      </Accesories>
+      }
         <RentalPeriod>
           <CalendarIcon>
           <Feather 
@@ -174,14 +193,17 @@ console.log(Object.keys(data.unavailable_dates).map(key => data.unavailable_date
         <RentalPrice>
           <RentalPriceLabel>TOTAL</RentalPriceLabel>
             <RentalPriceDetails>
-            <RentalPriceQuota>{`R$ ${car.rent.price} ${rentDays}x diárias`}</RentalPriceQuota>
+            <RentalPriceQuota>{`R$ ${car.price} ${rentDays}x diárias`}</RentalPriceQuota>
             <RentalPriceTotal>{`R$ ${rentTotal}`} </RentalPriceTotal>
             </RentalPriceDetails>
         </RentalPrice>
         </Content>
         <Footer>
-          <Button title="Alugar agora" color={theme.colors.success} onPress={() => handleConfirmRental()} loading={loading} enabled={!loading}  />
+          <Button title="Alugar agora" color={theme.colors.success} onPress={() => handleConfirmRental()} enabled={!!isConnected} loading={!isConnected}  />
+           { !isConnected && <OfflineInfo> Conecte-se a internet para visualizar {`\n`} mais detalhes e agendar seu veículo.  </OfflineInfo>  }
+
         </Footer>
     </Container>
   );
 }
+

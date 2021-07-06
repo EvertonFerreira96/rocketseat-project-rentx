@@ -7,7 +7,7 @@ import { Container } from './styles';
 
 import LoadCar from '../../assets/animated/load_car.json'; 
 
-export const LoadingAnimtaed: React.FC = () => {
+export const LoadingAnimated: React.FC = () => {
   return (
       <Container>
           <LottieView source={LoadCar} autoPlay style={{ height: 200 }} resizeMode="contain" loop />

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Keyboard, ScrollView, StatusBar, TouchableWithoutFeedback, View } from 'react-native';
 import * as Yup from 'yup';
 import { useTheme } from 'styled-components';
 import { Button } from '../../components/Button';
 import Input from '../../components/Input';
 import PasswordInput from '../../components/PasswordInput';
+
 
 import {
   Container,
@@ -46,6 +47,7 @@ export const SignIn: React.FC = () => {
     navigate('SignUpFirstStep');
 
   }
+
 
   return (
 

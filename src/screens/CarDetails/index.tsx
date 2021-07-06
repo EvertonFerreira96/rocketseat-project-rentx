@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect} from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Animated, {
   useSharedValue,
@@ -29,18 +29,23 @@ import {
   Price,
   About,
   Accesories,
-  Footer
+  Footer,
+  OfflineInfo
 
 }
   from './styles';
 import { CarDTO } from '../../dto/ICarDTO';
+import { Car as ModelCar } from '../../database/models/Car';
+
 import { Accessory } from '../../components/Accessory';
 import { getStatusBarHeight } from 'react-native-iphone-x-helper';
 import { StatusBar, StyleSheet } from 'react-native';
 import { useTheme } from 'styled-components';
+import { api } from '../../services/api';
+import { useNetInfo } from '@react-native-community/netinfo';
 
 interface RouteParamsProps {
-  car: CarDTO
+  car: ModelCar
 }
 
 interface RentalPeriod {
@@ -49,6 +54,10 @@ interface RentalPeriod {
 }
 
 export const CarDetails: React.FC = () => {
+
+  const { isConnected } = useNetInfo(); 
+
+  const [carUpdated, setCarUpdated] = useState<CarDTO>({} as CarDTO ); 
 
   const { navigate, goBack } = useNavigation();
   const theme = useTheme()
@@ -93,6 +102,22 @@ export const CarDetails: React.FC = () => {
     goBack();
   }
 
+  useEffect(() => {
+    let isMounted = true; 
+    if(isConnected === true && isMounted)
+    {
+      (async () => {
+        try {
+          const { data } = await api.get(`/cars/${car.id}`); 
+          setCarUpdated(data); 
+        } catch (error) {
+          
+        }
+      })()
+    }
+    return () => { isMounted = false }; 
+    },[isConnected]);
+
   return (
     <Container>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
@@ -109,7 +134,7 @@ export const CarDetails: React.FC = () => {
           <BackButton onPress={() => handleBack()} />
         </Header>
         <Animated.View style={[ sliderCarsStyleAnimation, { marginTop: getStatusBarHeight() + 32 }]}>
-          <ImageSlider imagesUrl={ car.photos } />
+          <ImageSlider imagesUrl={ !!carUpdated.photos ? carUpdated.photos : [{ id: car.thumbnail, photo: car.thumbnail }] } />
         </Animated.View>
       </Animated.View>
 
@@ -132,23 +157,22 @@ export const CarDetails: React.FC = () => {
 
           <Rent>
             <Period>{car.period}</Period>
-            <Price>{`R$${car.price}`}</Price>
+            <Price>{`R$ ${ !!isConnected ? car.price : '...' }`}</Price>
           </Rent>
         </Details>
+        {
+        carUpdated.accessories &&
         <Accesories>
-          {car.accessories.map((item) => <Accessory key={item.type} name={item.name} icon={getCarAccessoryIcon(item.type)} />)}
+          {carUpdated.accessories.map((item) => <Accessory key={item.type} name={item.name} icon={getCarAccessoryIcon(item.type)} />)}
         </Accesories>
+        }
         <About>
-          {car.about}
-          {car.about}
-          {car.about}
-          {car.about}
-          {car.about}
           {car.about}
         </About>
       </Animated.ScrollView>
       <Footer>
-        <Button title="Escolher período de aluguel " onPress={() => handleConfirmRental()} />
+        <Button title="Escolher período de aluguel"  enabled={!!isConnected} loading={!isConnected} onPress={() => handleConfirmRental()} />
+        { !isConnected && <OfflineInfo> Conecte-se a internet para visualizar {`\n`} mais detalhes e agendar seu veículo.  </OfflineInfo>  }
       </Footer>
     </Container>
   );

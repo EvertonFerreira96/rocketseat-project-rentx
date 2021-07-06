@@ -96,5 +96,12 @@ export const Accesories = styled.View`
 export const Footer = styled.View`
   width: 100%;
   background-color: ${({theme}) => theme.colors.background_secundary};
-  padding: ${RFValue(24)}px ${RFValue(24)}px ${RFValue(24) + getBottomSpace()}px
+  padding: ${RFValue(24)}px ${RFValue(24)}px ${RFValue(24) + getBottomSpace()}px;
 `; 
+
+export const OfflineInfo = styled.Text`
+font-family: ${({theme}) => theme.fonts.primary_400}; 
+color: ${({theme}) => theme.colors.main};
+font-size: ${RFValue(10)}px;
+text-align: center; 
+`;

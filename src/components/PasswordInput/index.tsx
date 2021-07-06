@@ -33,7 +33,7 @@ const Input: React.FC<InputProps> = ({ iconName,value,  ...rest }) => {
           <InputText isFocused={isFocused} secureTextEntry={passwordVisibility} onFocus={handleInputFocused} onBlur={handleInputBlur} {...rest} />
           <ChangeTextVisibilityButton isFocused={isFocused} >
             <BorderlessButton  onPress={() => setPasswordVisibility(previous => !previous)}>
-              <Feather  name={ passwordVisibility ? "eye" :  "eye-off"} size={24} color={theme.colors.text} /> 
+              <Feather  name={ passwordVisibility ? "eye" :  "eye-off"} size={20} color={theme.colors.text} /> 
             </BorderlessButton>
           </ChangeTextVisibilityButton>
       </Container>
